@@ -1,6 +1,4 @@
 
-// const bodyParser  = require('body-parser');
-// const urlencodeParser = bodyParser.urlencoded({extended: false});
 // module.exports = function(app,db){
 //
 //   //reading data
@@ -17,7 +15,7 @@
 //
 //
 //   //posting data
-//   app.post('/todo',urlencodeParser, function(req, res){
+//   app.post('/todo', function(req, res){
 //     console.log('we posting');
 //     let item=req.body;
 //     console.log(item);
@@ -50,15 +48,18 @@
 
 const bodyParser = require('body-parser');
 const urlencodeParser = bodyParser.urlencoded({extended: false});
-module.exports = function(app, db) {
+module.exports = function(app, db, passport) {
   // reading data
-  app.get('/todo', function(req, res) {
+  app.get('/todo', isLoggedIn, function(req, res) {
     console.log('we reading');
-      let sql = 'SELECT * FROM todoitems;';
+    console.log(req.user);
+      let sql = 'SELECT * FROM todoitems WHERE userID= '+ req.user.id +';';
       db.query(sql, function(err, results) {
-        if (err) throw err;
+        if (err){
+          throw err;
+        }
         console.log(results);
-        res.render('todo', {todos: results});
+        res.render('todo', {todos: results, user: req.user});
       });
   });
 
@@ -66,6 +67,7 @@ module.exports = function(app, db) {
   app.post('/todo', urlencodeParser, function(req, res){
     console.log('we posting');
     let item = req.body;
+    item['userID'] = res.user.id;
     console.log(item);
     let sql = 'INSERT INTO todoitems SET ?';
     db.query(sql, item, (err, result) => {
@@ -87,4 +89,47 @@ module.exports = function(app, db) {
   });
 });
 
+
+
+
+  //Display sign up
+    app.get('/signup', function(req,res) {
+  	   res.render('signup');
+  }
+    );
+  // //handling signup form
+  app.post('/signup', passport.authenticate('local-signup',  {
+     successRedirect: '/todo',
+     failureRedirect: '/signup'}
+    )
+  );
+
+  //Display signin
+  app.get('/signin', function(req,res) {
+   res.render('signin', {message: req.flash('loginmessage')});
+  });
+
+//handling signin form
+app.post('/signin', passport.authenticate('local-signin', {
+   successRedirect: '/todo',
+   failureRedirect: '/signin'}
+ )
+);
+
+//destroying sessions
+  app.get('/logout', function(req,res){
+    req.session.destroy(function(err)  {
+    res.redirect('/signin');
+  });
+});
+
+
+
+
 };
+function isLoggedIn(req, res, next) {
+      if (req.isAuthenticated())
+          return next();
+
+      res.redirect('/signin');
+  }
